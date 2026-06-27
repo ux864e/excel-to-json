@@ -1,0 +1,3 @@
+# Test fixture files go here.
+# Place small Excel (.xlsx, .csv, .xls) files for integration tests.
+# These fixtures are read by tests/cli.rs and tests/converter_tests.rs.

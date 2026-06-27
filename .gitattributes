@@ -1,0 +1,7 @@
+# All text files use LF — cross-platform consistency.
+# Overrides per-machine core.autocrlf so macOS/Linux/Windows
+# all produce the same line endings.
+* text=auto eol=lf
+
+# Shell hooks — explicit LF (already covered by * above, kept for clarity).
+.codex/hooks/*.sh text eol=lf

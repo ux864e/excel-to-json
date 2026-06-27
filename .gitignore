@@ -1,0 +1,58 @@
+# .gitignore file for a RUST project
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+
+# OS files to be ignored
+.DS_Store
+[Tt]humbs.db
+desktop.ini
+
+# Runtime/Editor ignored folder and files
+## IDE / Editor
+.idea/
+.vs/
+.vscode/
+*.swp
+*.swo
+
+## Claude Code — local overrides
+.claude/settings.local.json
+.claude/.git-check-timestamp
+.claude/.git-sync-timestamp
+
+# Build output
+## Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+## Others
+dist/
+
+# testing
+/coverage
+
+# Logs
+*.log
+*.log*
+
+# Configured Environment variables
+*.env.*
+*.env copy
+*.env copy*
+
+# Ignore all certificates and keys
+*.pem
+*.crt
+*.key
+certs/
+!certs/*.md
+!certs/*.example
+keys/*
+!keys/*.md
+!keys/*.example
+
+# Project specified folder and files
+
+# Misc.

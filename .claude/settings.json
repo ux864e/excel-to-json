@@ -1,0 +1,32 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(git *)",
+            "Bash(cargo *)",
+            "Bash(cargo fmt *)",
+            "Bash(cargo clippy *)",
+            "Bash(cargo test *)",
+            "Bash(cargo build *)",
+            "Bash(ls *)",
+            "Bash(find *)",
+            "Bash(grep *)",
+            "Bash(date *)",
+            "Bash(mkdir *)",
+            "WebSearch",
+            "Read(~/.cargo/**)",
+            "Read(~/.rustup/**)",
+            "Bash(brew list *)",
+            "Bash(~/.cargo/bin/rustc --version)",
+            "Bash(~/.cargo/bin/cargo --version)"
+        ],
+        "additionalDirectories": [
+            ".agents/",
+            ".claude/",
+            ".claude/memory/",
+            "docs/",
+            "docs/design/",
+            "tests/",
+            "tests/fixtures/"
+        ]
+    }
+}
