@@ -32,20 +32,28 @@ tests/
   common/mod.rs  # Shared test helpers
   fixtures/      # Test Excel files
 docs/
-  design/        # Design documentation
+  design/        # Design documentation (internal)
+  release/       # External documentation (API docs, user guides)
+  TASKS.md       # Pending tasks
+  DEV_NOTES.md   # Design decisions + remaining issues
 changelog/
   CHANGELOG_yyyymmdd.md  # Daily change records
 CHANGELOG.md     # Changelog index table
-TASKS.md         # Pending tasks
-DEV_NOTES.md     # Design decisions + remaining issues
 ```
+
+## Documentation Layout
+
+| Directory | Audience | Content |
+|-----------|----------|---------|
+| `docs/design/` | Internal (self / team) | Design docs, requirements, architecture |
+| `docs/release/` | External (users, API consumers) | API docs, user guides, public references |
 
 ## Dev Log Conventions
 
 | File | Contains | Must NOT contain |
 |------|----------|-----------------|
-| `TASKS.md` | Pending tasks (P1-P4) | Completed work, decisions |
-| `DEV_NOTES.md` | Design decisions, rationale | Task lists |
+| `docs/TASKS.md` | Pending tasks (P1-P4) | Completed work, decisions |
+| `docs/DEV_NOTES.md` | Design decisions, rationale | Task lists |
 | `changelog/CHANGELOG_yyyymmdd.md` | Completed work + modified files | Unfinished work |
 | `CHANGELOG.md` | Index table linking to changelog/ entries | Detailed content |
 

@@ -30,8 +30,8 @@ Three strictly separated files, consistent across all projects:
 
 | File | Contains | Must NOT contain |
 |------|----------|-----------------|
-| `TASKS.md` | Pending tasks only (P1-P4), with priority/urgency | Completed work, design discussion, decisions |
-| `DEV_NOTES.md` | Design decisions, rationale, remaining issues | Task lists |
+| `docs/TASKS.md` | Pending tasks only (P1-P4), with priority/urgency | Completed work, design discussion, decisions |
+| `docs/DEV_NOTES.md` | Design decisions, rationale, remaining issues | Task lists |
 | `changelog/CHANGELOG_yyyymmdd.md` | Completed work with modified files | Unfinished work |
 
 `CHANGELOG.md` is a **lightweight index table** pointing to individual daily files in `changelog/`.
@@ -39,11 +39,11 @@ Three strictly separated files, consistent across all projects:
 ### Start of Session
 1. Run `git status` to check working tree state.
 2. Review `CHANGELOG.md` index for recent history.
-3. Review `TASKS.md` for pending items.
-4. Review `DEV_NOTES.md` for recent decisions/issues.
+3. Review `docs/TASKS.md` for pending items.
+4. Review `docs/DEV_NOTES.md` for recent decisions/issues.
 
 ### End of Session
-1. Migrate completed tasks from `TASKS.md` to `changelog/CHANGELOG_yyyymmdd.md`
+1. Migrate completed tasks from `docs/TASKS.md` to `changelog/CHANGELOG_yyyymmdd.md`
 2. Update `CHANGELOG.md` index with new row (date, summary, author, filename)
-3. Update `DEV_NOTES.md` with any design decisions or issues encountered
+3. Update `docs/DEV_NOTES.md` with any design decisions or issues encountered
 4. Commit and push all changes

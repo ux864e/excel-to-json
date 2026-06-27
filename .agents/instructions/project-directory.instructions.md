@@ -40,15 +40,16 @@
 | `.claude/settings.local.json` | Local overrides (gitignored). |
 | `.claude/memory/` | Persistent knowledge store. |
 
-## Documentation
+## Documentation (`docs/`)
 | Path | Purpose |
 |------|---------|
-| `README.md` | Project overview and usage. |
-| `docs/design/` | Design documentation (Chinese, YAML frontmatter). |
+| `docs/design/` | Design documentation — internal (Chinese, YAML frontmatter). |
+| `docs/release/` | External documentation — API docs, user guides, public references. |
 
-## Dev Records (root)
+## Dev Records
 | File | Purpose |
 |------|---------|
-| `TASKS.md` | To-do list and work in progress. |
-| `DEV_NOTES.md` | Development decisions, issues, observations. |
-| `CHANGELOG.md` | Completed work and significant changes. |
+| `docs/TASKS.md` | To-do list and work in progress. |
+| `docs/DEV_NOTES.md` | Development decisions, issues, observations. |
+| `CHANGELOG.md` | Changelog index table. |
+| `changelog/` | Daily change records (`CHANGELOG_yyyymmdd.md`). |

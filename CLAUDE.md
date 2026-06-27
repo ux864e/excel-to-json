@@ -21,10 +21,10 @@ Read and follow the instructions in `.agents/instructions/` in this order:
 - Read `update-design-docs.instructions.md` for when and how to update.
 
 ### Dev Logs
-Three strictly separated log files:
-- `TASKS.md` — to-do items, work in progress
-- `DEV_NOTES.md` — development notes, decisions, issues encountered
-- `CHANGELOG.md` — completed work log
+Three strictly separated log files under `docs/`:
+- `docs/TASKS.md` — to-do items, work in progress
+- `docs/DEV_NOTES.md` — development notes, decisions, issues encountered
+- `CHANGELOG.md` + `changelog/` — completed work index + daily records
 
 ### Git
 - `git-status-reminder.instructions.md` for periodic checks.
