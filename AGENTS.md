@@ -33,7 +33,23 @@ tests/
   fixtures/      # Test Excel files
 docs/
   design/        # Design documentation
+changelog/
+  CHANGELOG_yyyymmdd.md  # Daily change records
+CHANGELOG.md     # Changelog index table
+TASKS.md         # Pending tasks
+DEV_NOTES.md     # Design decisions + remaining issues
 ```
+
+## Dev Log Conventions
+
+| File | Contains | Must NOT contain |
+|------|----------|-----------------|
+| `TASKS.md` | Pending tasks (P1-P4) | Completed work, decisions |
+| `DEV_NOTES.md` | Design decisions, rationale | Task lists |
+| `changelog/CHANGELOG_yyyymmdd.md` | Completed work + modified files | Unfinished work |
+| `CHANGELOG.md` | Index table linking to changelog/ entries | Detailed content |
+
+End-of-session: migrate completed tasks from TASKS → changelog, update CHANGELOG.md index.
 
 ## Key Architecture Decisions
 1. **Config-driven mapping**: `excel-to-json.toml` defines column renames, exclusions, and nesting rules. CLI args override config file settings.
