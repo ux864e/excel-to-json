@@ -24,6 +24,15 @@ cd "$REPO_ROOT"
 
 # ── Ensure Rust is installed ─────────────────────────────────────────────────
 
+# Rust may be installed but not in the current shell's PATH
+# (e.g. fresh install in a previous run).
+if ! command -v cargo &>/dev/null; then
+    if [[ -f "$HOME/.cargo/env" ]]; then
+        # shellcheck source=/dev/null
+        source "$HOME/.cargo/env"
+    fi
+fi
+
 if ! command -v cargo &>/dev/null; then
     echo "==> Rust not found. Running setup..."
     bash "$SCRIPT_DIR/setup-rust.sh"
