@@ -1,63 +1,86 @@
 #!/usr/bin/env bash
 #
-# deploy.sh — Build and deploy the excel-to-json binary to a target directory.
+# deploy.sh — Build and deploy config-importer for the current platform.
 #
 # Usage:
-#   ./scripts/deploy.sh              # deploy with default settings
-#   TARGET_DIR=/opt/tools ./scripts/deploy.sh   # override target directory
-#
-# The binary is renamed to "config-importer" (plus .exe on Windows).
+#   ./scripts/deploy.sh
+#   TARGET_DIR=/opt/tools ./scripts/deploy.sh
 
 set -euo pipefail
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-# Target directory for the deployed binary (relative to the repo root).
-# Override via environment variable: TARGET_DIR=/some/path ./scripts/deploy.sh
 TARGET_DIR="${TARGET_DIR:-../Cuddle/cuddle-app-backend/tools}"
-
-# Name of the deployed binary (no extension — platform suffix is added automatically).
 DEPLOY_NAME="config-importer"
 
 # ── Resolve paths ────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TARGET_DIR="$(cd "$REPO_ROOT" && mkdir -p "$TARGET_DIR" && cd "$TARGET_DIR" && pwd)"
+mkdir -p "$TARGET_DIR"
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
-# ── Platform detection ───────────────────────────────────────────────────────
+cd "$REPO_ROOT"
 
-case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*)
-        EXT=".exe"
+# ── Ensure Rust is installed ─────────────────────────────────────────────────
+
+if ! command -v cargo &>/dev/null; then
+    echo "==> Rust not found. Running setup..."
+    bash "$SCRIPT_DIR/setup-rust.sh"
+    # shellcheck source=/dev/null
+    source "$HOME/.cargo/env"
+fi
+
+# ── Detect platform ──────────────────────────────────────────────────────────
+
+ARCH=$(uname -m)
+OS=$(uname -s)
+
+case "$OS-$ARCH" in
+    Darwin-arm64)
+        SUFFIX="darwin-arm64"
+        TARGET="aarch64-apple-darwin"
+        ;;
+    Darwin-x86_64)
+        SUFFIX="darwin-x86_64"
+        TARGET="x86_64-apple-darwin"
+        ;;
+    Linux-x86_64)
+        SUFFIX="linux-x86_64"
+        TARGET="x86_64-unknown-linux-gnu"
+        ;;
+    Linux-aarch64)
+        SUFFIX="linux-arm64"
+        TARGET="aarch64-unknown-linux-gnu"
         ;;
     *)
-        EXT=""
+        echo "ERROR: Unsupported platform: $OS-$ARCH" >&2
+        exit 1
         ;;
 esac
 
-BINARY_SRC="$REPO_ROOT/target/release/excel-to-json"
-BINARY_DST="$TARGET_DIR/$DEPLOY_NAME$EXT"
+echo "==> Platform: $SUFFIX"
 
 # ── Build ────────────────────────────────────────────────────────────────────
 
-echo "==> Building release binary..."
-cd "$REPO_ROOT"
-cargo build --release
-
-if [[ ! -f "$BINARY_SRC" ]]; then
-    echo "ERROR: Build did not produce expected binary at: $BINARY_SRC" >&2
-    exit 1
+if ! rustup target list --installed | grep -q "$TARGET"; then
+    echo "    Installing target: $TARGET"
+    rustup target add "$TARGET"
 fi
 
-echo "    Binary: $BINARY_SRC"
-echo "    Size:   $(du -h "$BINARY_SRC" | cut -f1)"
+cargo build --release --target "$TARGET"
 
 # ── Deploy ───────────────────────────────────────────────────────────────────
 
-echo "==> Deploying to: $BINARY_DST"
-cp "$BINARY_SRC" "$BINARY_DST"
-chmod +x "$BINARY_DST"
+SRC="$REPO_ROOT/target/$TARGET/release/excel-to-json"
+DST="$TARGET_DIR/$DEPLOY_NAME-$SUFFIX"
 
-echo "==> Done: $BINARY_DST"
-ls -lh "$BINARY_DST"
+if [[ ! -f "$SRC" ]]; then
+    echo "ERROR: Build did not produce expected binary at: $SRC" >&2
+    exit 1
+fi
+
+cp "$SRC" "$DST"
+chmod +x "$DST"
+
+echo "==> Deployed: $DST ($(du -h "$DST" | cut -f1))"

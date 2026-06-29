@@ -72,3 +72,5 @@ description: '设计决策备忘 + 剩余问题。变更列表和修改文件见
 
 - 多 sheet 场景下，若某个 sheet 的 configName 重复，后者会覆盖前者的输出文件。未做去重检测。
 - 旧格式 Excel（row 0 = header）不再支持。如需兼容可考虑基于 Row 0 Col B 是否为空做 fallback 检测。
+- **deploy.sh**：最终简化为检测当前平台自动编译。移除 cross/Linux 交叉编译（根据当前系统环境编译生成）。deploy 前自动调用 setup-rust.sh 确保环境就绪。
+- **setup-rust.sh**：幂等的 Rust 环境初始化脚本。安装 rustup + stable toolchain + 平台对应 targets。可在新机器上一键准备编译环境。

@@ -51,6 +51,8 @@
 - `src/cli.rs` — ArgAction::Set for bool args
 - `src/walker.rs` — relative_path + base_dir
 - `tests/cli.rs` — 10 个集成测试
+- `scripts/deploy.sh` — 新增部署脚本（自动检测平台编译，自动调用 setup-rust.sh）
+- `scripts/setup-rust.sh` — 新增 Rust 环境初始化脚本（幂等）
 - `tests/fixtures/sample.xlsx` — 新格式 fixture
 - `tests/fixtures/multi-sheet.xlsx` — 新增多 sheet fixture
 - `scripts/deploy.sh` — 新增部署脚本
