@@ -50,9 +50,19 @@
 ### Changed
 - **output.rs**：`emit_results` 中文件名生成由 `format!("{}.json", config.config_name)` 改为 `format!("{}.json", camel_to_kebab(&config.config_name))`
 
+## 2026-06-29 (4) — 注释列过滤（`//` / `#` 前缀 header）
+
+### Added
+- **`comment_column_mask()`**：`converter.rs` 辅助函数。识别 header 行中以 `//` 或 `#` 开头的参考列，生成布尔掩码供过滤
+- **注释列排除**：`parse_sheet_with_meta` 中，header 以 `//` 或 `#` 开头的列（id 列除外）在输出时自动排除。这些列仅用于 Excel 编辑参考
+- **单元测试**：`test_comment_column_mask_basic`、`test_comment_column_mask_no_comments`、`test_comment_column_mask_all_non_id_comments`、`test_comment_column_mask_hash_prefix`
+
+### Changed
+- **converter.rs**：`parse_sheet_with_meta` 中 `data_headers` 提升为循环外预计算；`data_row` 过滤注释列
+
 ## 修改文件
 
-- `src/converter.rs` — 完全重写（ConfigOutput、parse_sheet_with_meta、validate_config_name、parse_id）
+- `src/converter.rs` — 完全重写（ConfigOutput、parse_sheet_with_meta、validate_config_name、parse_id），新增 comment_column_mask 注释列过滤
 - `src/output.rs` — FileSummary 重构，emit_results 统一配置路径，新增 camel_to_kebab 文件名转换
 - `src/config.rs` — 移除 config_name，简化 StdinInput
 - `src/lib.rs` — stdin 处理简化

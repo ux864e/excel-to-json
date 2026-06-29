@@ -14,6 +14,7 @@ A CLI tool to convert Excel files (.xlsx, .xls, .xlsb, .ods) to JSON config file
 - **Stdin integration**: Read `outputDir` from piped JSON; write directly to that directory
 - **Single-line JSON summary**: One status line on stdout for programmatic consumption
 - **Per-file error resilience**: Errors on individual files/sheets are collected without aborting the batch
+- **Comment column exclusion**: Header columns prefixed with `//` or `#` are reference-only and excluded from JSON output
 
 ## Excel Tab Convention
 
@@ -23,9 +24,13 @@ Each sheet must follow this structure:
 |-----|-------|-------|---------|
 | 0 | label (ignored) | **configName** | Config identifier (validated, forced lowercase) |
 | 1 | label (ignored) | **description** | Human-readable description |
-| 2 | `id` | field names... | Field definitions (headers) |
+| 2 | `id` | field names... | Field definitions (headers). Columns starting with `//` or `#` are reference-only and excluded from output |
 | 3 | comments | comments | Field comments (skipped) |
 | 4+ | id value | data... | Data rows |
+
+### Header Comment Convention
+
+Header names starting with `//` or `#` (e.g. `//internal_id`, `#note`) are treated as editor reference columns. These columns are excluded from JSON output but remain visible in Excel for documentation purposes. The `id` column is never excluded.
 
 ### configName Rules
 

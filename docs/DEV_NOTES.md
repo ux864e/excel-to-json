@@ -78,6 +78,15 @@ description: '设计决策备忘 + 剩余问题。变更列表和修改文件见
 - **转换实现位置**：`output.rs` 的 `emit_results` 中，仅在生成文件名时调用 `camel_to_kebab()`。不在 converter 层提前转换，避免影响 JSON 内容中的 configName 字段。
 - **转换规则**：ASCII 大写字母前插入 `-` 并 lowercased。全小写或无大写字母的 configName 不受影响。`ABC` 等边缘情况会产生 `-a-b-c`，但实际使用中不会出现（validate 要求首字符小写）。
 
+---
+
+## 2026-06-29 (4) — 注释列过滤（`//` / `#` 前缀 header）
+
+### 设计决策
+- **注释列约定**：header 行中以 `//` 或 `#` 开头的列视为"仅 Excel 编辑参考"列，在 JSON 输出中自动排除。id 列（Col A）不受此规则影响，始终保留。
+- **实现方式**：`comment_column_mask()` 生成布尔掩码，在 `parse_sheet_with_meta` 中同时过滤 `data_headers`（循环外预计算）和 `data_row`（循环内过滤）。不在 mapping 层处理，因为注释列是 sheet 约定的一部分，不需要映射介入。
+- **前缀选择**：`//` 与注释行风格一致；`#` 是另一种常见注释约定（如 TOML/YAML）。两者等效。
+
 ### 剩余问题
 
 - 多 sheet 场景下，若某个 sheet 的 configName 重复，后者会覆盖前者的输出文件。未做去重检测。

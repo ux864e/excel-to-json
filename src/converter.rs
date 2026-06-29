@@ -249,6 +249,19 @@ fn parse_sheet_with_meta(
 
     // Row 3: field comments — skipped.
 
+    // Identify comment columns: headers starting with "//" or "#".
+    // Column 0 (id) is never excluded.
+    let is_comment_header = comment_column_mask(&headers);
+
+    // Pre-compute non-id, non-comment data headers (used for all data rows).
+    let data_headers: Vec<String> = headers
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter(|(i, _)| !is_comment_header[*i])
+        .map(|(_, h)| h.clone())
+        .collect();
+
     // Rows 4+: data rows.
     let input_rows = rows.len().saturating_sub(4);
     let mut json_rows = Vec::new();
@@ -294,12 +307,17 @@ fn parse_sheet_with_meta(
             continue;
         }
 
-        // Build row data excluding the id column (index 0).
+        // Build row data excluding the id column (index 0) and comment columns.
         // The id will be re-inserted after mapping.
-        let data_row: Vec<Data> = row.iter().skip(1).cloned().collect();
-        let data_headers: Vec<String> = headers.iter().skip(1).cloned().collect();
+        let data_row: Vec<Data> = row
+            .iter()
+            .enumerate()
+            .skip(1)
+            .filter(|(i, _)| !is_comment_header[*i])
+            .map(|(_, d)| d.clone())
+            .collect();
 
-        // Apply mapping on non-id columns.
+        // Apply mapping on non-id, non-comment columns.
         let mapped = mapping::apply_mapping(&data_headers, &[data_row], &cfg.mapping);
 
         // Insert the id field.
@@ -392,6 +410,22 @@ fn validate_config_name(raw: &str) -> Result<String, String> {
     }
 
     Ok(name)
+}
+
+/// Build a boolean mask identifying comment columns in the header row.
+///
+/// Columns whose header starts with `//` or `#` are reference-only
+/// columns for the Excel editor and are excluded from JSON output.
+/// Column 0 (id) is never considered a comment column.
+///
+/// Returns a Vec<bool> where true means the column at that index
+/// should be excluded.
+fn comment_column_mask(headers: &[String]) -> Vec<bool> {
+    headers
+        .iter()
+        .enumerate()
+        .map(|(i, h)| i > 0 && (h.starts_with("//") || h.starts_with('#')))
+        .collect()
 }
 
 /// Convert a calamine `Data` cell to its string representation.
@@ -558,5 +592,48 @@ mod tests {
         assert!(validate_config_name("test.name").is_err());
         assert!(validate_config_name("test$name").is_err());
         assert!(validate_config_name("test-name").is_err());
+    }
+
+    #[test]
+    fn test_comment_column_mask_basic() {
+        let headers = vec![
+            "id".to_string(),
+            "name".to_string(),
+            "//internal".to_string(),
+            "#note".to_string(),
+            "age".to_string(),
+        ];
+        let mask = comment_column_mask(&headers);
+        // id (index 0) never excluded
+        assert!(!mask[0]);
+        // normal columns
+        assert!(!mask[1]);
+        // comment columns
+        assert!(mask[2]);
+        assert!(mask[3]);
+        // normal column after comment
+        assert!(!mask[4]);
+    }
+
+    #[test]
+    fn test_comment_column_mask_no_comments() {
+        let headers = vec!["id".to_string(), "name".to_string(), "age".to_string()];
+        let mask = comment_column_mask(&headers);
+        assert_eq!(mask, vec![false, false, false]);
+    }
+
+    #[test]
+    fn test_comment_column_mask_all_non_id_comments() {
+        let headers = vec!["id".to_string(), "//ref1".to_string(), "//ref2".to_string()];
+        let mask = comment_column_mask(&headers);
+        assert_eq!(mask, vec![false, true, true]);
+    }
+
+    #[test]
+    fn test_comment_column_mask_hash_prefix() {
+        let headers = vec!["id".to_string(), "#reference".to_string()];
+        let mask = comment_column_mask(&headers);
+        assert!(!mask[0]);
+        assert!(mask[1]);
     }
 }
