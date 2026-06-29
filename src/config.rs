@@ -53,6 +53,35 @@ pub struct MappingConfig {
     pub nested_paths: std::collections::HashMap<String, String>,
 }
 
+/// Configuration passed via stdin (pipe) from the parent process.
+#[derive(Debug, Clone, Deserialize)]
+pub struct StdinInput {
+    /// Absolute path for the output directory.
+    #[serde(rename = "outputDir")]
+    pub output_dir: PathBuf,
+}
+
+/// Attempt to read and parse a `StdinInput` from stdin.
+///
+/// Returns `None` if stdin is a terminal (no piped input) or if
+/// the input is empty or cannot be parsed.
+pub fn read_stdin_config() -> Option<StdinInput> {
+    use std::io::{IsTerminal, Read};
+
+    let stdin = std::io::stdin();
+    if stdin.is_terminal() {
+        return None;
+    }
+
+    let mut buf = String::new();
+    stdin.lock().read_to_string(&mut buf).ok()?;
+    if buf.trim().is_empty() {
+        return None;
+    }
+
+    serde_json::from_str(&buf).ok()
+}
+
 /// Load and merge configuration from TOML file and CLI arguments.
 /// CLI arguments take precedence over file settings.
 pub fn load(args: &Args) -> Result<Config> {
@@ -74,7 +103,6 @@ pub fn load(args: &Args) -> Result<Config> {
         }
     };
 
-    // CLI args take precedence over config file.
     Ok(Config {
         input_dir: args.input_dir.clone(),
         output_dir: file_cfg.output_dir.unwrap_or(args.output_dir.clone()),

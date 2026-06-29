@@ -1,117 +1,244 @@
-//! Output module: write JSON files and emit IPC messages on stdout/stderr.
+//! Output module: write JSON files and emit a single summary line on stdout.
 
 use crate::config::Config;
-use crate::converter::ConversionResult;
-use anyhow::{Context, Result};
+use crate::converter::{ConversionResult, ErrorEntry, WarningEntry};
 use serde::Serialize;
 use std::io::{self, Write};
-use std::path::Path;
 use tracing::debug;
 
-/// IPC message format — one JSON line per event, written to stdout.
-///
-/// Other processes can parse these line-delimited JSON messages
-/// to track conversion progress.
+/// Single-line JSON summary emitted on stdout at the end of a run.
 #[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-pub enum IpcMessage {
-    #[serde(rename = "progress")]
-    Progress { file: String, status: String },
-    #[serde(rename = "done")]
-    Done { file: String, rows: usize },
-    #[serde(rename = "error")]
-    Error { file: String, message: String },
+pub struct Summary {
+    pub status: String,
+    pub files: Vec<FileSummary>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub errors: Vec<ErrorEntry>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<WarningEntry>,
 }
 
-impl IpcMessage {
-    /// Emit a progress message to stdout.
-    pub fn progress(path: &Path, status: &str) {
-        let msg = Self::Progress {
-            file: path.display().to_string(),
-            status: status.to_string(),
-        };
-        emit(&msg);
-    }
-
-    /// Emit a done message to stdout with the converted row count.
-    pub fn done(path: &Path, rows: usize) {
-        let msg = Self::Done {
-            file: path.display().to_string(),
-            rows,
-        };
-        emit(&msg);
-    }
-
-    /// Emit an error message to stderr.
-    pub fn error_msg(path: &Path, message: &str) {
-        let msg = Self::Error {
-            file: path.display().to_string(),
-            message: message.to_string(),
-        };
-        let line = serde_json::to_string(&msg).unwrap_or_default();
-        eprintln!("{}", line);
-    }
+/// A successfully converted config entry in the summary.
+#[derive(Debug, Serialize)]
+pub struct FileSummary {
+    /// Config name from the Excel sheet metadata.
+    #[serde(rename = "configName")]
+    pub config_name: String,
+    /// Output file path relative to the configured directory.
+    pub path: String,
+    /// Description from the Excel sheet metadata.
+    pub description: String,
+    /// Number of valid data rows written to the output file.
+    #[serde(rename = "validRows")]
+    pub valid_rows: usize,
+    /// Total data rows in the sheet (excluding metadata rows).
+    #[serde(rename = "inputRows")]
+    pub input_rows: usize,
+    /// Rows skipped: comment rows (// prefix) + duplicate ids.
+    #[serde(rename = "skippedRows")]
+    pub skipped_rows: usize,
+    /// Rows with an invalid (unparseable) id.
+    #[serde(rename = "failedRows")]
+    pub failed_rows: usize,
 }
 
-/// Write a single IPC line to stdout. Panics on serialization failure
-/// (should be infallible for our enum).
-fn emit(msg: &IpcMessage) {
-    let line = serde_json::to_string(msg).expect("IPC message serialization should not fail");
+/// Write the final summary as a single JSON line to stdout.
+///
+/// This is the only output on stdout — the calling process should
+/// parse this line to determine the outcome.
+pub fn emit_summary(summary: &Summary) {
+    let line = serde_json::to_string(summary).expect("Summary serialization should not fail");
     println!("{}", line);
-    // Flush to ensure parent process receives the message immediately.
     let _ = io::stdout().flush();
 }
 
 /// Write all conversion results to JSON files on disk.
 ///
-/// Output structure mirrors the input directory structure, with
-/// `.json` files replacing the original Excel files.
-pub fn emit_results(results: &[ConversionResult], cfg: &Config) -> Result<()> {
-    std::fs::create_dir_all(&cfg.output_dir)
-        .with_context(|| format!("Failed to create output dir: {}", cfg.output_dir.display()))?;
+/// Each `ConfigOutput` from each sheet produces one file at
+/// `<output_dir>/<config_name>.json`.
+///
+/// Returns structured summaries for the final output, and any
+/// per-file write errors that occurred (never fails globally).
+pub fn emit_results(
+    results: &[ConversionResult],
+    cfg: &Config,
+) -> (Vec<FileSummary>, Vec<ErrorEntry>) {
+    let output_dir = &cfg.output_dir;
+    let mut file_summaries = Vec::new();
+    let mut errors = Vec::new();
 
     for result in results {
-        let output_path = cfg.output_dir.join(format!("{}.json", result.stem));
-        debug!(path = %output_path.display(), "Writing output");
+        for config in &result.configs {
+            let filename = format!("{}.json", config.config_name);
+            let output_path = output_dir.join(&filename);
 
-        let json = if cfg.pretty {
-            serde_json::to_string_pretty(&result.sheets)?
-        } else {
-            serde_json::to_string(&result.sheets)?
-        };
+            // Ensure the output directory exists.
+            if let Err(e) = std::fs::create_dir_all(output_dir) {
+                errors.push(ErrorEntry {
+                    file: Some(config.config_name.clone()),
+                    message: format!(
+                        "Failed to create output directory '{}': {:#}",
+                        output_dir.display(),
+                        e
+                    ),
+                });
+                continue;
+            }
 
-        std::fs::write(&output_path, json)
-            .with_context(|| format!("Failed to write: {}", output_path.display()))?;
+            // Build the output JSON:
+            // { "configName": "...", "description": "...", "items": [ rows ] }
+            let data = serde_json::json!({
+                "configName": &config.config_name,
+                "description": &config.description,
+                "items": &config.rows
+            });
+
+            let json = match if cfg.pretty {
+                serde_json::to_string_pretty(&data)
+            } else {
+                serde_json::to_string(&data)
+            } {
+                Ok(j) => j,
+                Err(e) => {
+                    errors.push(ErrorEntry {
+                        file: Some(config.config_name.clone()),
+                        message: format!("JSON serialization error: {:#}", e),
+                    });
+                    continue;
+                }
+            };
+
+            if let Err(e) = std::fs::write(&output_path, &json) {
+                errors.push(ErrorEntry {
+                    file: Some(config.config_name.clone()),
+                    message: format!("Failed to write output file: {:#}", e),
+                });
+                continue;
+            }
+
+            debug!(path = %output_path.display(), "Wrote output");
+            file_summaries.push(FileSummary {
+                config_name: config.config_name.clone(),
+                path: filename,
+                description: config.description.clone(),
+                valid_rows: config.valid_rows,
+                input_rows: config.input_rows,
+                skipped_rows: config.skipped_rows,
+                failed_rows: config.failed_rows,
+            });
+        }
     }
 
-    Ok(())
+    (file_summaries, errors)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::MappingConfig;
+    use crate::converter::{ConfigOutput, ConversionResult, ErrorEntry};
 
     #[test]
-    fn test_ipc_message_serialization() {
-        let msg = IpcMessage::Progress {
-            file: "/tmp/test.xlsx".to_string(),
-            status: "converting".to_string(),
+    fn test_summary_serialization_success() {
+        let summary = Summary {
+            status: "success".to_string(),
+            files: vec![FileSummary {
+                config_name: "pet-types".to_string(),
+                path: "pet-types.json".to_string(),
+                description: "Available pet types".to_string(),
+                valid_rows: 3,
+                input_rows: 5,
+                skipped_rows: 1,
+                failed_rows: 1,
+            }],
+            errors: vec![],
+            warnings: vec![],
         };
-        let json = serde_json::to_string(&msg).unwrap();
+        let json = serde_json::to_string(&summary).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed["type"], "progress");
-        assert_eq!(parsed["file"], "/tmp/test.xlsx");
+        assert_eq!(parsed["status"], "success");
+        assert_eq!(parsed["files"][0]["configName"], "pet-types");
+        assert_eq!(parsed["files"][0]["path"], "pet-types.json");
+        assert_eq!(parsed["files"][0]["description"], "Available pet types");
+        assert_eq!(parsed["files"][0]["validRows"], 3);
+        assert_eq!(parsed["files"][0]["inputRows"], 5);
+        assert_eq!(parsed["files"][0]["skippedRows"], 1);
+        assert_eq!(parsed["files"][0]["failedRows"], 1);
+        // Empty errors/warnings should be omitted.
+        assert!(parsed.get("errors").is_none());
+        assert!(parsed.get("warnings").is_none());
     }
 
     #[test]
-    fn test_ipc_done_message() {
-        let msg = IpcMessage::Done {
-            file: "/tmp/test.xlsx".to_string(),
-            rows: 42,
+    fn test_summary_serialization_error() {
+        let summary = Summary {
+            status: "error".to_string(),
+            files: vec![],
+            errors: vec![ErrorEntry {
+                file: None,
+                message: "Input directory not found".to_string(),
+            }],
+            warnings: vec![],
         };
-        let json = serde_json::to_string(&msg).unwrap();
+        let json = serde_json::to_string(&summary).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed["type"], "done");
-        assert_eq!(parsed["rows"], 42);
+        assert_eq!(parsed["status"], "error");
+        assert_eq!(parsed["errors"][0]["message"], "Input directory not found");
+        assert!(parsed["errors"][0].get("file").is_none());
+        assert!(parsed.get("warnings").is_none());
+    }
+
+    #[test]
+    fn test_emit_results_with_config_outputs() {
+        use tempfile::TempDir;
+
+        let tmp = TempDir::new().unwrap();
+        let output_dir = tmp.path().join("output");
+        let cfg = Config {
+            input_dir: tmp.path().to_path_buf(),
+            output_dir: output_dir.clone(),
+            recursive: false,
+            pretty: false,
+            mapping: MappingConfig::default(),
+        };
+
+        let results = vec![ConversionResult {
+            relative_path: std::path::PathBuf::from("data.xlsx"),
+            stem: "data".to_string(),
+            configs: vec![
+                ConfigOutput {
+                    config_name: "pet-types".to_string(),
+                    description: "Available pet types".to_string(),
+                    rows: vec![serde_json::json!({"id": 1, "name": "Fido"})],
+                    input_rows: 1,
+                    valid_rows: 1,
+                    skipped_rows: 0,
+                    failed_rows: 0,
+                },
+                ConfigOutput {
+                    config_name: "food-types".to_string(),
+                    description: "Available food types".to_string(),
+                    rows: vec![serde_json::json!({"id": 1, "name": "Kibble"})],
+                    input_rows: 1,
+                    valid_rows: 1,
+                    skipped_rows: 0,
+                    failed_rows: 0,
+                },
+            ],
+            total_rows: 2,
+        }];
+
+        let (summaries, errors) = emit_results(&results, &cfg);
+        assert!(errors.is_empty());
+        assert_eq!(summaries.len(), 2);
+
+        assert_eq!(summaries[0].config_name, "pet-types");
+        assert_eq!(summaries[0].path, "pet-types.json");
+        assert_eq!(summaries[0].description, "Available pet types");
+        assert_eq!(summaries[1].config_name, "food-types");
+        assert_eq!(summaries[1].path, "food-types.json");
+
+        // Verify output files exist directly in the output directory.
+        assert!(output_dir.join("pet-types.json").exists());
+        assert!(output_dir.join("food-types.json").exists());
     }
 }

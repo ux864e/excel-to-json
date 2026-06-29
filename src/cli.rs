@@ -25,11 +25,11 @@ pub struct Args {
     pub config_path: Option<PathBuf>,
 
     /// Recursively traverse subdirectories
-    #[arg(short = 'r', long = "recursive", default_value = "true")]
+    #[arg(short = 'r', long = "recursive", default_value = "true", action = clap::ArgAction::Set)]
     pub recursive: bool,
 
     /// Pretty-print JSON output
-    #[arg(short = 'p', long = "pretty", default_value = "false")]
+    #[arg(short = 'p', long = "pretty", default_value = "false", action = clap::ArgAction::Set)]
     pub pretty: bool,
 
     /// Verbosity level (-v, -vv, -vvv)
