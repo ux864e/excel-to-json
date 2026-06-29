@@ -10,7 +10,7 @@ set -euo pipefail
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
-TARGET_DIR="${TARGET_DIR:-../Cuddle/cuddle-app-backend/tools}"
+TARGET_DIR="${TARGET_DIR:-../cuddle-service/cuddle-app-backend/tools}"
 DEPLOY_NAME="config-importer"
 
 # ── Resolve paths ────────────────────────────────────────────────────────────

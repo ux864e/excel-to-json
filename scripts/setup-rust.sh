@@ -20,8 +20,9 @@ if ! command -v rustup &>/dev/null; then
     echo "    rustup not found. Installing..."
 
     install_with_timeout() {
-        # Run rustup installer with a timeout. If it exceeds RUSTUP_TIMEOUT
-        # seconds (likely stuck on official servers), kill it and return 1.
+        # Run rustup installer with a timeout. Shows elapsed / remaining.
+        # If it exceeds RUSTUP_TIMEOUT seconds (likely stuck on official
+        # servers), kill it and return 1.
         local pid
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y --default-toolchain stable &
@@ -29,8 +30,12 @@ if ! command -v rustup &>/dev/null; then
 
         local elapsed=0
         while kill -0 "$pid" 2>/dev/null; do
-            sleep 2
-            elapsed=$((elapsed + 2))
+            sleep 1
+            elapsed=$((elapsed + 1))
+            local remaining=$((RUSTUP_TIMEOUT - elapsed))
+            printf "    Waiting for official source... %ss elapsed, %ss until fallback\r" \
+                "$elapsed" "$remaining"
+
             if [[ $elapsed -ge $RUSTUP_TIMEOUT ]]; then
                 echo ""
                 echo "    Timed out after ${RUSTUP_TIMEOUT}s. Switching to USTC mirror..."
@@ -41,6 +46,8 @@ if ! command -v rustup &>/dev/null; then
         done
 
         wait "$pid"
+        # Clear the countdown line.
+        printf "\r%*s\r" 80 ""
     }
 
     if ! install_with_timeout; then
