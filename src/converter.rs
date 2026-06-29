@@ -531,10 +531,7 @@ mod tests {
     #[test]
     fn test_validate_config_name_uppercase_body_ok() {
         // Uppercase allowed in body, but must start with lowercase.
-        assert_eq!(
-            validate_config_name("pet_Types").unwrap(),
-            "pet_Types"
-        );
+        assert_eq!(validate_config_name("pet_Types").unwrap(), "pet_Types");
         assert_eq!(
             validate_config_name("myConfigName").unwrap(),
             "myConfigName"

@@ -9,6 +9,7 @@ A CLI tool to convert Excel files (.xlsx, .xls, .xlsb, .ods) to JSON config file
 - **Metadata-driven**: configName, description, and field definitions extracted from sheet rows 0-3
 - **`id` column enforcement**: Column A is always `id` — unique unsigned integer, `//` prefix for comments
 - **Row statistics**: inputRows, validRows, skippedRows, failedRows per config
+- **camelCase → kebab-case filenames**: Output filenames are automatically kebab-cased (e.g. configName `myConfigName` → file `my-config-name.json`)
 - **Config-driven mapping**: Define column renames, exclusions, and nested JSON paths in TOML
 - **Stdin integration**: Read `outputDir` from piped JSON; write directly to that directory
 - **Single-line JSON summary**: One status line on stdout for programmatic consumption
@@ -48,7 +49,7 @@ When called from a parent process, pipe a JSON object to stdin:
 {"outputDir": "/absolute/path/to/output"}
 ```
 
-The tool writes output files to `<outputDir>/<configName>.json`.
+The tool writes output files to `<outputDir>/<configName>.json`. If configName contains uppercase letters (camelCase), the filename is automatically converted to kebab-case (e.g. `myConfigName` → `my-config-name.json`).
 
 Without stdin, the CLI `--output` flag is used (legacy mode for manual testing).
 
@@ -122,7 +123,7 @@ Note: The `id` column is always included regardless of `exclude_columns`.
 
 ### Disk: JSON Config Files
 
-Output at `<outputDir>/<configName>.json`:
+Output at `<outputDir>/<configName>.json` (camelCase configNames are kebab-cased in the filename):
 
 ```json
 {

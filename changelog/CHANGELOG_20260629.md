@@ -41,10 +41,19 @@
 - **旧 JSON 文件结构**：`{"<configName>": [...]}` 改为 `{"configName":"...","description":"...","items":[...]}`
 - **configName 校验规则迭代**：最终确定为 `^[a-z][a-zA-Z0-9_]*[a-zA-Z0-9]$`。移除连字符 `-` 支持，移除强制 lowercase 转换（改为拒绝大写首字符），body 允许大写。
 
+## 2026-06-29 (3) — camelCase configName → kebab-case 输出文件名
+
+### Added
+- **`camel_to_kebab()`**：`output.rs` 辅助函数。将 camelCase 字符串转为 kebab-case 作为输出文件名（如 `myConfigName` → `my-config-name.json`）
+- **单元测试**：`test_camel_to_kebab`（8 个边界用例）、`test_emit_results_camelcase_config_name`（验证 configName 保留原值，输出文件使用 kebab-case）
+
+### Changed
+- **output.rs**：`emit_results` 中文件名生成由 `format!("{}.json", config.config_name)` 改为 `format!("{}.json", camel_to_kebab(&config.config_name))`
+
 ## 修改文件
 
 - `src/converter.rs` — 完全重写（ConfigOutput、parse_sheet_with_meta、validate_config_name、parse_id）
-- `src/output.rs` — FileSummary 重构，emit_results 统一配置路径
+- `src/output.rs` — FileSummary 重构，emit_results 统一配置路径，新增 camel_to_kebab 文件名转换
 - `src/config.rs` — 移除 config_name，简化 StdinInput
 - `src/lib.rs` — stdin 处理简化
 - `src/main.rs` — 全局错误摘要

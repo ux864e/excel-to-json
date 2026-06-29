@@ -68,6 +68,16 @@ description: '设计决策备忘 + 剩余问题。变更列表和修改文件见
 - **移除硬编码子路径**：`.runtime-cached/resources/configured/` 为示例路径，误硬编码到 `emit_results`。已移除，输出直接写入 `outputDir`。
 - **JSON 文件输出结构**：输出文件从 `{"<configName>": [...]}` 改为 `{"configName":"...","description":"...","items":[...]}`。configName 和 description 提升为顶层字段，数据行统一在 `items` 键下。
 
+---
+
+## 2026-06-29 (3) — camelCase configName → kebab-case 输出文件名
+
+### 设计决策
+
+- **输出文件名 kebab-case 化**：当 configName 包含大写字母（如 `myConfigName`），输出文件自动转为 kebab-case（`my-config-name.json`）。configName 本身在 JSON 内容和摘要中保留原值不变。
+- **转换实现位置**：`output.rs` 的 `emit_results` 中，仅在生成文件名时调用 `camel_to_kebab()`。不在 converter 层提前转换，避免影响 JSON 内容中的 configName 字段。
+- **转换规则**：ASCII 大写字母前插入 `-` 并 lowercased。全小写或无大写字母的 configName 不受影响。`ABC` 等边缘情况会产生 `-a-b-c`，但实际使用中不会出现（validate 要求首字符小写）。
+
 ### 剩余问题
 
 - 多 sheet 场景下，若某个 sheet 的 configName 重复，后者会覆盖前者的输出文件。未做去重检测。

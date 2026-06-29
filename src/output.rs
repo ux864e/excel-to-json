@@ -6,6 +6,28 @@ use serde::Serialize;
 use std::io::{self, Write};
 use tracing::debug;
 
+/// Convert a camelCase string to kebab-case.
+///
+/// Inserts a hyphen before each ASCII uppercase letter and lowercases it.
+/// Strings without uppercase letters are returned unchanged.
+///
+/// # Examples
+/// - `"aaaBbbCcc"` → `"aaa-bbb-ccc"`
+/// - `"simple"` → `"simple"`
+/// - `"myConfigName"` → `"my-config-name"`
+fn camel_to_kebab(s: &str) -> String {
+    let mut result = String::with_capacity(s.len() + 4);
+    for ch in s.chars() {
+        if ch.is_ascii_uppercase() {
+            result.push('-');
+            result.push(ch.to_ascii_lowercase());
+        } else {
+            result.push(ch);
+        }
+    }
+    result
+}
+
 /// Single-line JSON summary emitted on stdout at the end of a run.
 #[derive(Debug, Serialize)]
 pub struct Summary {
@@ -68,7 +90,7 @@ pub fn emit_results(
 
     for result in results {
         for config in &result.configs {
-            let filename = format!("{}.json", config.config_name);
+            let filename = format!("{}.json", camel_to_kebab(&config.config_name));
             let output_path = output_dir.join(&filename);
 
             // Ensure the output directory exists.
@@ -240,5 +262,58 @@ mod tests {
         // Verify output files exist directly in the output directory.
         assert!(output_dir.join("pet-types.json").exists());
         assert!(output_dir.join("food-types.json").exists());
+    }
+
+    #[test]
+    fn test_camel_to_kebab() {
+        assert_eq!(camel_to_kebab("aaaBbbCcc"), "aaa-bbb-ccc");
+        assert_eq!(camel_to_kebab("simple"), "simple");
+        assert_eq!(camel_to_kebab("myConfigName"), "my-config-name");
+        assert_eq!(camel_to_kebab("alreadyKebab"), "already-kebab");
+        assert_eq!(camel_to_kebab(""), "");
+        assert_eq!(camel_to_kebab("alllowercase"), "alllowercase");
+        assert_eq!(camel_to_kebab("a"), "a");
+        assert_eq!(camel_to_kebab("ABC"), "-a-b-c");
+    }
+
+    #[test]
+    fn test_emit_results_camelcase_config_name() {
+        use tempfile::TempDir;
+
+        let tmp = TempDir::new().unwrap();
+        let output_dir = tmp.path().join("output");
+        let cfg = Config {
+            input_dir: tmp.path().to_path_buf(),
+            output_dir: output_dir.clone(),
+            recursive: false,
+            pretty: false,
+            mapping: MappingConfig::default(),
+        };
+
+        let results = vec![ConversionResult {
+            relative_path: std::path::PathBuf::from("data.xlsx"),
+            stem: "data".to_string(),
+            configs: vec![ConfigOutput {
+                config_name: "myConfigName".to_string(),
+                description: "Test config".to_string(),
+                rows: vec![serde_json::json!({"id": 1, "name": "Fido"})],
+                input_rows: 1,
+                valid_rows: 1,
+                skipped_rows: 0,
+                failed_rows: 0,
+            }],
+            total_rows: 1,
+        }];
+
+        let (summaries, errors) = emit_results(&results, &cfg);
+        assert!(errors.is_empty());
+        assert_eq!(summaries.len(), 1);
+
+        // config_name in summary stays as the original camelCase.
+        assert_eq!(summaries[0].config_name, "myConfigName");
+        // Output path uses kebab-case filename.
+        assert_eq!(summaries[0].path, "my-config-name.json");
+        // The actual file on disk uses kebab-case.
+        assert!(output_dir.join("my-config-name.json").exists());
     }
 }
