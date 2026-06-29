@@ -3,11 +3,14 @@
 # setup-rust.sh — Install and initialize the Rust toolchain.
 #
 # Idempotent: safe to run even if Rust is already installed.
+# Falls back to USTC mirrors if the default installer times out.
 #
 # Usage:
 #   ./scripts/setup-rust.sh
 
 set -euo pipefail
+
+RUSTUP_TIMEOUT=60  # seconds before falling back to USTC mirror
 
 echo "==> Checking Rust environment..."
 
@@ -15,7 +18,39 @@ echo "==> Checking Rust environment..."
 
 if ! command -v rustup &>/dev/null; then
     echo "    rustup not found. Installing..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+
+    install_with_timeout() {
+        # Run rustup installer with a timeout. If it exceeds RUSTUP_TIMEOUT
+        # seconds (likely stuck on official servers), kill it and return 1.
+        local pid
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --default-toolchain stable &
+        pid=$!
+
+        local elapsed=0
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 2
+            elapsed=$((elapsed + 2))
+            if [[ $elapsed -ge $RUSTUP_TIMEOUT ]]; then
+                echo ""
+                echo "    Timed out after ${RUSTUP_TIMEOUT}s. Switching to USTC mirror..."
+                kill "$pid" 2>/dev/null || true
+                wait "$pid" 2>/dev/null || true
+                return 1
+            fi
+        done
+
+        wait "$pid"
+    }
+
+    if ! install_with_timeout; then
+        export RUSTUP_DIST_SERVER="https://mirrors.ustc.edu.cn/rust-static"
+        export RUSTUP_UPDATE_ROOT="https://mirrors.ustc.edu.cn/rust-static/rustup"
+        echo "    Retrying with USTC mirror..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --default-toolchain stable
+    fi
+
     # shellcheck source=/dev/null
     source "$HOME/.cargo/env"
 else
@@ -75,3 +110,37 @@ rustc --version
 cargo --version
 echo "    Installed targets:"
 rustup target list --installed
+
+# ── Ensure PATH in shell profile ─────────────────────────────────────────────
+
+CARGO_PATH_LINE='export PATH="$HOME/.cargo/bin:$PATH"'
+
+ensure_path_in_profile() {
+    local profile="$1"
+    if [[ -f "$profile" ]]; then
+        if grep -q '.cargo/bin' "$profile"; then
+            return 0  # already configured
+        fi
+    fi
+    return 1  # not configured
+}
+
+# Determine which profile file to update.
+if [[ "$OS" == "Darwin" ]]; then
+    PROFILE="$HOME/.zshrc"
+else
+    PROFILE="$HOME/.bashrc"
+fi
+
+if ! ensure_path_in_profile "$PROFILE"; then
+    echo ""
+    echo "==> Adding Rust to PATH in $PROFILE"
+    {
+        echo ""
+        echo "# Rust"
+        echo "$CARGO_PATH_LINE"
+    } >>"$PROFILE"
+    echo "    Added: $CARGO_PATH_LINE"
+else
+    echo "    PATH already configured in $PROFILE"
+fi
